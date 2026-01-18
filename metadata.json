@@ -1,0 +1,7 @@
+{
+  "name": "JewelShot AI",
+  "description": "Professional AI-powered jewelry photoshoot studio. Upload sketches or photos and transform them into high-quality marketing renders.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
