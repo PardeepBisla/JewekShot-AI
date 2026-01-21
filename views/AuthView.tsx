@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 
 interface AuthViewProps {
   onLogin: (email: string) => void;
@@ -14,9 +14,19 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [configMissing, setConfigMissing] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setConfigMissing(true);
+      setError("System Configuration Error: Supabase keys are missing from the environment.");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || configMissing) return;
+    
     setError(null);
     setMessage(null);
     setIsLoading(true);
@@ -29,13 +39,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         });
         if (signUpError) throw signUpError;
         
-        // Handle successful signup
-        if (data.session) {
-          // If auto-confirm is enabled in Supabase settings
+        if (data?.session) {
           onLogin(email);
         } else {
-          // If email confirmation is required
-          setMessage("Account created! Please check your email for a verification link.");
+          setMessage("Account created successfully. Please check your email for a verification link.");
         }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -46,7 +53,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         onLogin(email);
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      console.error("Authentication failed", err);
+      setError(err.message || "Unable to complete authentication. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -54,18 +62,20 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setError("Please enter your email address first.");
+      setError("Please enter your registered email address.");
       return;
     }
     setError(null);
     setMessage(null);
     setIsLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
       if (resetError) throw resetError;
-      setMessage("Password reset link sent to your email.");
+      setMessage("A password recovery link has been dispatched to your email.");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to initiate password reset.");
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +83,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
   return (
     <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display">
-      <header className="w-full border-b border-solid border-gray-200 dark:border-border-dark px-6 md:px-10 py-4 flex items-center justify-between bg-white dark:bg-background-dark">
+      <header className="w-full border-b border-solid border-gray-200 dark:border-border-dark px-6 md:px-10 py-4 flex items-center justify-between bg-white dark:bg-background-dark shrink-0">
         <div className="flex items-center gap-3">
           <div className="size-8 text-primary">
             <svg fill="currentColor" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
@@ -83,40 +93,42 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           <h2 className="text-gray-900 dark:text-white text-xl font-bold leading-tight tracking-tight">JewelShot AI</h2>
         </div>
         <div className="hidden md:block">
-          <span className="text-xs font-medium px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20 uppercase tracking-widest">Alpha MVP</span>
+          <span className="text-xs font-semibold px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20 uppercase tracking-widest">Enterprise Studio</span>
         </div>
       </header>
 
       <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-[440px] bg-white dark:bg-surface-dark rounded-xl shadow-xl border border-gray-100 dark:border-border-dark overflow-hidden">
+        <div className="w-full max-w-[440px] bg-white dark:bg-surface-dark rounded-2xl shadow-2xl border border-gray-100 dark:border-border-dark overflow-hidden transition-all duration-300">
           <div className="pt-10 pb-6 px-8 text-center">
-            <h1 className="text-gray-900 dark:text-white text-3xl font-bold leading-tight mb-2">JewelShot AI</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-base">
-              {isSignUp ? "Create your professional studio account" : "Log in to start your AI photoshoot"}
+            <h1 className="text-gray-900 dark:text-white text-3xl font-black leading-tight mb-2">JewelShot AI</h1>
+            <p className="text-gray-600 dark:text-gray-400 text-base font-medium">
+              {isSignUp ? "Join the premier AI jewelry studio" : "Sign in to your professional account"}
             </p>
           </div>
           
-          <form className="px-8 pb-10 space-y-5" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2">
-              <label className="text-gray-700 dark:text-gray-200 text-sm font-medium">Email</label>
+          <form className="px-8 pb-10 space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <label className="text-gray-700 dark:text-gray-200 text-sm font-semibold ml-1">Work Email</label>
               <input 
-                className="form-input w-full rounded-lg border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary h-12 px-4 text-base transition-all placeholder:text-gray-400 dark:placeholder:text-[#9b92c9]" 
+                className="w-full rounded-xl border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary h-12 px-4 text-base transition-all placeholder:text-gray-400" 
                 placeholder="name@company.com" 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={configMissing}
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <label className="text-gray-700 dark:text-gray-200 text-sm font-medium">Password</label>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center ml-1">
+                <label className="text-gray-700 dark:text-gray-200 text-sm font-semibold">Password</label>
                 {!isSignUp && (
                   <button 
-                    className="text-primary text-xs font-semibold hover:underline" 
+                    className="text-primary text-xs font-bold hover:underline transition-all" 
                     type="button"
                     onClick={handleForgotPassword}
+                    disabled={configMissing}
                   >
                     Forgot password?
                   </button>
@@ -124,70 +136,79 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               </div>
               <div className="relative flex items-center">
                 <input 
-                  className="form-input w-full rounded-lg border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary h-12 pl-4 pr-12 text-base transition-all placeholder:text-gray-400 dark:placeholder:text-[#9b92c9]" 
+                  className="w-full rounded-xl border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary h-12 pl-4 pr-12 text-base transition-all placeholder:text-gray-400" 
                   placeholder="••••••••" 
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={configMissing}
                 />
-                <div 
-                  className="absolute right-3 text-gray-400 dark:text-[#9b92c9] cursor-pointer hover:text-gray-600 dark:hover:text-white flex items-center"
+                <button 
+                  type="button"
+                  className="absolute right-3 text-gray-400 hover:text-primary transition-colors flex items-center justify-center p-1"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                </div>
+                  <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                </button>
               </div>
             </div>
 
-            {/* Error and Success feedback placed below inputs as per checklist requirements */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
-                {error}
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
+                <span className="material-symbols-outlined text-sm mt-0.5">error</span>
+                <span className="leading-relaxed">{error}</span>
               </div>
             )}
             {message && (
-              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-medium">
-                {message}
+              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold flex items-start gap-3 animate-in fade-in slide-in-from-top-1">
+                <span className="material-symbols-outlined text-sm mt-0.5">check_circle</span>
+                <span className="leading-relaxed">{message}</span>
               </div>
             )}
 
-            <div className="pt-4 space-y-4">
+            <div className="pt-2 space-y-5">
               <button 
-                className="w-full bg-primary hover:bg-opacity-90 text-white font-bold py-3.5 px-4 rounded-lg shadow-md transition-all active:scale-[0.98] text-base disabled:opacity-50 disabled:cursor-not-allowed" 
+                className="w-full bg-primary hover:bg-opacity-95 text-white font-black py-4 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] text-base disabled:opacity-50 disabled:cursor-not-allowed group" 
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || configMissing}
               >
                 {isLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <div className="flex items-center justify-center gap-3">
+                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Wait a moment...</span>
+                    <span>Authenticating...</span>
                   </div>
-                ) : (isSignUp ? "Create Account" : "Sign In")}
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <span>{isSignUp ? "Create Professional Account" : "Enter Studio"}</span>
+                    <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                  </div>
+                )}
               </button>
               
-              <div className="relative flex items-center py-2">
+              <div className="relative flex items-center py-1">
                 <div className="flex-grow border-t border-gray-200 dark:border-border-dark"></div>
-                <span className="flex-shrink mx-4 text-gray-400 text-xs uppercase tracking-widest">or</span>
+                <span className="flex-shrink mx-4 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">OR</span>
                 <div className="flex-grow border-t border-gray-200 dark:border-border-dark"></div>
               </div>
               
               <div className="text-center">
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  {isSignUp ? "Already have an account?" : "Don't have an account?"} 
+                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+                  {isSignUp ? "Already a studio member?" : "New to JewelShot?"} 
                   <button 
-                    className="text-primary font-bold ml-1 hover:underline" 
+                    className="text-primary font-black ml-2 hover:underline transition-all" 
                     type="button"
                     onClick={() => {
                       setIsSignUp(!isSignUp);
                       setError(null);
                       setMessage(null);
                     }}
+                    disabled={configMissing}
                   >
-                    {isSignUp ? "Sign In" : "Create Account"}
+                    {isSignUp ? "Sign In" : "Request Access"}
                   </button>
                 </p>
               </div>
@@ -196,11 +217,12 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-gray-500 dark:text-gray-500 text-xs">
-        <p>© 2024 JewelShot AI Studio. All rights reserved.</p>
-        <div className="mt-2 space-x-4">
-          <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-          <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
+      <footer className="py-8 text-center text-gray-500 dark:text-gray-500 text-xs shrink-0">
+        <p className="font-medium">© 2024 JewelShot AI Studio. High-fidelity rendering for luxury brands.</p>
+        <div className="mt-3 space-x-6 flex justify-center">
+          <a className="hover:text-primary transition-colors" href="#">Privacy</a>
+          <a className="hover:text-primary transition-colors" href="#">Terms</a>
+          <a className="hover:text-primary transition-colors" href="#">Security</a>
         </div>
       </footer>
     </div>

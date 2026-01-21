@@ -7,7 +7,7 @@ import CreatePhotoshootView from './views/CreatePhotoshootView';
 import ProcessingView from './views/ProcessingView';
 import ResultsView from './views/ResultsView';
 import { generateJewelryPhoto } from './services/geminiService';
-import { supabase } from './services/supabaseClient';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.AUTH);
@@ -46,27 +46,49 @@ const App: React.FC = () => {
 
   // Handle Supabase Auth Session
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({ email: session.user.email || '' });
-        setCurrentView(AppView.DASHBOARD);
-      }
-      setIsInitializing(false);
-    });
+    let mounted = true;
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    // Check configuration status
+    if (!isSupabaseConfigured()) {
+      console.warn("Supabase is not configured. Redirecting to Auth View for manual setup or keys.");
+      setIsInitializing(false);
+      return;
+    }
+
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted && session?.user) {
+          setUser({ email: session.user.email || '' });
+          setCurrentView(prev => prev === AppView.AUTH ? AppView.DASHBOARD : prev);
+        }
+      } catch (err) {
+        console.error("Initial session check failed", err);
+      } finally {
+        if (mounted) setIsInitializing(false);
+      }
+    };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         setUser({ email: session.user.email || '' });
-        setCurrentView(AppView.DASHBOARD);
-      } else {
+        setCurrentView(prev => (prev === AppView.AUTH ? AppView.DASHBOARD : prev));
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setCurrentView(AppView.AUTH);
+        setResults([]);
+        setLastConfig(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = (email: string) => {
@@ -75,9 +97,13 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setCurrentView(AppView.AUTH);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Sign out error", err);
+      setUser(null);
+      setCurrentView(AppView.AUTH);
+    }
   };
 
   const handleStartPhotoshoot = useCallback(async (config: PhotoshootConfig) => {
@@ -96,10 +122,9 @@ const App: React.FC = () => {
       
       setResults(generatedImages);
 
-      // Add to mock projects
       const newProject: Project = {
         id: Date.now().toString(),
-        name: `New Photoshoot ${projects.length + 1}`,
+        name: `Photoshoot - ${config.placement}`,
         thumbnail: generatedImages[0],
         lastEdited: 'Just now',
         renderCount: generatedImages.length,
@@ -109,6 +134,7 @@ const App: React.FC = () => {
       
       setCurrentView(AppView.RESULTS);
     } catch (error) {
+      console.error("Photoshoot generation failed", error);
       alert("Error generating image: " + (error instanceof Error ? error.message : "Unknown error"));
       setCurrentView(AppView.CREATE);
     }
@@ -116,10 +142,19 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-background-dark flex items-center justify-center">
-        <div className="text-primary animate-pulse">
+      <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-6">
+        <div className="text-primary animate-bounce">
            <span className="material-symbols-outlined text-6xl">diamond</span>
         </div>
+        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-primary animate-[loading_1.5s_ease-in-out_infinite] w-1/3"></div>
+        </div>
+        <style>{`
+          @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+          }
+        `}</style>
       </div>
     );
   }
