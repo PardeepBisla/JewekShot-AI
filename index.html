@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>JewelShot AI</title>
+    <title>JewelShot AI | Luxury Studio</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = {
@@ -14,20 +14,20 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#3713ec",
-                        "background-light": "#f6f6f8",
-                        "background-dark": "#131022",
-                        "surface-dark": "#1e1933",
-                        "border-dark": "#3b3267"
+                        "primary": "#E2B091", // Rose Gold
+                        "primary-dark": "#C58E6F",
+                        "obsidian": "#0D0D0E",
+                        "surface": "#161618",
+                        "border-muted": "#222224",
+                        "ivory": "#FFF8F0",
+                        "platinum": "#D4D4D8"
                     },
                     fontFamily: {
                         "display": ["Inter", "sans-serif"]
                     },
                     borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
+                        "2xl": "1.25rem",
+                        "3xl": "1.5rem"
                     },
                 },
             },
@@ -38,25 +38,55 @@
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 0;
+            -webkit-font-smoothing: antialiased;
+            background-color: #0D0D0E;
+            color: #f1f1f1;
+        }
+        /* Subtle Noise Overlay for Texture */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: 9999;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
         }
         .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
         }
-        .spinner {
-            animation: rotate 2s linear infinite;
+        /* Cinematic Glows and Shadows */
+        .luxury-shadow {
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.7);
         }
-        .spinner circle {
-            stroke: #3713ec;
-            stroke-linecap: round;
-            animation: dash 1.5s ease-in-out infinite;
+        .rose-gold-gradient {
+            background: linear-gradient(135deg, #E2B091 0%, #C58E6F 100%);
         }
-        @keyframes rotate {
-            100% { transform: rotate(360deg); }
+        .metallic-border {
+            border: 1px solid rgba(226, 176, 145, 0.15);
+            transition: border-color 0.3s ease;
         }
-        @keyframes dash {
-            0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
-            50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
-            100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
+        .metallic-border:hover {
+            border-color: rgba(226, 176, 145, 0.4);
+        }
+        .spotlight {
+            background: radial-gradient(circle at center, rgba(226, 176, 145, 0.08) 0%, transparent 70%);
+        }
+        .ai-glow {
+            filter: drop-shadow(0 0 10px rgba(226, 176, 145, 0.2));
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #0D0D0E; }
+        ::-webkit-scrollbar-thumb { background: #222224; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #E2B091; }
+
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 <script type="importmap">
@@ -71,7 +101,7 @@
 }
 </script>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display transition-colors duration-300">
+<body class="selection:bg-primary/30">
     <div id="root"></div>
 </body>
 </html>

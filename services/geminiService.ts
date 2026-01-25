@@ -2,39 +2,62 @@
 import { GoogleGenAI } from "@google/genai";
 
 export async function generateJewelryPhoto(
-  base64Image: string,
+  base64Images: string[],
   placement: string,
   style: string,
   customPrompt: string
 ): Promise<string[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const base64Data = base64Image.split(',')[1];
+  const imageParts = base64Images.map(img => ({
+    inlineData: {
+      data: img.split(',')[1],
+      mimeType: 'image/png',
+    },
+  }));
 
-  // Professional photography technical suffix to enforce realism
-  const realismSuffix = `
-    Photographic Style: High-end commercial jewelry photography. 
-    Technical: Shot on Hasselblad H6D-100c, 100MP, sharp focus, ultra-high resolution. 
-    Lighting: Realistic light behavior, accurate caustic reflections in gemstones, physically correct light falloff. 
-    Avoid: Plastic textures, overly smooth surfaces, airbrushed looks, or generic AI artifacts. 
-    Goal: Make it look like a RAW, unedited high-fashion photograph.
+  /**
+   * ABSOLUTE FIDELITY PROTOCOL
+   * The reference image is the single source of truth.
+   */
+  const systemInstruction = `
+    You are an AI product-visualization engine for the jewellery industry.
+    Your PRIMARY responsibility is to preserve the exact physical identity of the jewellery provided in the reference image.
+
+    ABSOLUTE RULES:
+    1. SINGLE SOURCE OF TRUTH: Reproduced the jewellery EXACTLY as shown in the reference image. Preserve design, proportions, dimensions, stone count, stone placement.
+    2. FIDELITY: Preserve metal color, polish, engravings, textures, prongs, and links. Visual accuracy is more important than creativity.
+    3. MUST NOT: Do NOT redesign, enhance, beautify, or stylize the jewellery. Do NOT add, remove, merge, or modify stones or metal parts.
+    4. BACKGROUND: Default background is pure white (#FFFFFF). No props, stands, mannequins, humans, hands, or skin. No lifestyle elements.
+    5. LIGHTING: Neutral studio lighting only. Even illumination. Minimal shadow directly under the product only. No reflections that distort geometry.
+    6. GOAL: Create a clean professional jewellery product photo that is e-commerce catalog-ready. Ultra-sharp, photorealistic, and distortion-free.
   `;
 
+  // We generate three distinct professional angles/variants based on the literal reproduction rule
   const variants = [
     {
-      id: 'closeup',
-      label: 'Macro Detail Shot',
-      prompt: `Extreme macro photography of the jewelry. Focus on the microscopic details of the stone facets, the refractive index of the gems, and the authentic texture of the metal. Include realistic light dispersion. Neutral background with soft, natural bokeh. 8k, photorealistic. ${customPrompt} ${realismSuffix}`
+      id: 'catalog-main',
+      label: 'Main Catalog Shot',
+      prompt: `${systemInstruction} 
+      SCENE: A clean, centered product photograph on a pure white background.
+      TECHNICAL: Exact 1:1 reproduction of the reference jewelry. Sharp focus, zero distortion.
+      ${customPrompt}`
     },
     {
-      id: 'display',
-      label: 'Commercial Display',
-      prompt: `A professional boutique display shot. The jewelry is placed on a realistic ${style} surface (like heavy marble or fine silk). The metal should show faint, realistic reflections of a high-end studio environment. Cinematic depth of field, sophisticated side-lighting. ${customPrompt} ${realismSuffix}`
+      id: 'catalog-top',
+      label: 'Technical Top View',
+      prompt: `${systemInstruction} 
+      SCENE: A technical top-down view of the jewelry, centered on a pure white background.
+      TECHNICAL: Preserving every stone and metal link exactly. High clarity.
+      ${customPrompt}`
     },
     {
-      id: 'lifestyle',
-      label: 'Editorial Lifestyle',
-      prompt: `High-fashion editorial portrait. A woman with realistic skin texture (pores, fine lines, natural features - not airbrushed) wearing the jewelry on her ${placement}. Soft natural window light, organic shadows. The jewelry must interact naturally with the skin, casting small realistic shadows. Vogue aesthetic. ${customPrompt} ${realismSuffix}`
+      id: 'catalog-macro',
+      label: 'Macro Detail View',
+      prompt: `${systemInstruction} 
+      SCENE: A focused macro-detail shot of the most complex part of the jewelry design.
+      TECHNICAL: Pure white background, emphasizing the exact material texture and stone facets as seen in reference.
+      ${customPrompt}`
     }
   ];
 
@@ -44,15 +67,8 @@ export async function generateJewelryPhoto(
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
-            {
-              inlineData: {
-                data: base64Data,
-                mimeType: 'image/png',
-              },
-            },
-            {
-              text: variant.prompt
-            },
+            ...imageParts,
+            { text: variant.prompt }
           ],
         },
       });
@@ -73,12 +89,12 @@ export async function generateJewelryPhoto(
     const finalImages = results.filter((img): img is string => img !== null);
 
     if (finalImages.length === 0) {
-      throw new Error("No images were generated by the model");
+      throw new Error("Reference image quality insufficient for accurate reproduction.");
     }
 
     return finalImages;
   } catch (error) {
-    console.error("Gemini Multi-Variant Generation Error:", error);
+    console.error("Gemini Fidelity Synthesis Error:", error);
     throw error;
   }
 }

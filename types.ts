@@ -9,7 +9,7 @@ export interface Project {
 }
 
 export interface PhotoshootConfig {
-  jewelryImage: string | null;
+  jewelryImages: string[]; // Array of base64 strings for multiple angles
   placement: string;
   style: string;
   prompt: string;

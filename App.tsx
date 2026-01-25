@@ -107,14 +107,14 @@ const App: React.FC = () => {
   };
 
   const handleStartPhotoshoot = useCallback(async (config: PhotoshootConfig) => {
-    if (!config.jewelryImage) return;
+    if (config.jewelryImages.length === 0) return;
 
     setLastConfig(config);
     setCurrentView(AppView.PROCESSING);
 
     try {
       const generatedImages = await generateJewelryPhoto(
-        config.jewelryImage,
+        config.jewelryImages,
         config.placement,
         config.style,
         config.prompt

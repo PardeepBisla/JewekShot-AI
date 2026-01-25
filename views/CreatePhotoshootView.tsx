@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { PhotoshootConfig } from '../types';
 
 interface CreatePhotoshootViewProps {
@@ -7,213 +7,195 @@ interface CreatePhotoshootViewProps {
   onSubmit: (config: PhotoshootConfig) => void;
 }
 
-const PLACEMENT_PROMPTS: Record<string, string> = {
-  hand: 'A stunning high-end diamond ring worn on a finger, soft skin texture, elegant hand pose, warm sunset studio lighting, macro photography, 8k resolution, photorealistic.',
-  neck: 'A luxury gold pendant necklace displayed on an elegant jewelry bust, soft cream velvet background, professional studio lighting with rim light, minimalist and sophisticated.',
-  ear: 'Exquisite diamond stud earrings, close-up macro shot, professional jewelry photography, brilliant sparkles and light refraction, clean minimalist background, sharp focus.',
-  studio: 'A luxury jewelry piece displayed on a polished white marble pedestal, dramatic side lighting, soft bokeh background, architectural studio setup, ultra-high resolution.'
-};
+const MIN_IMAGES = 2;
+const MAX_IMAGES = 6;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const PLACEMENT_OPTIONS = [
+  { value: 'ring', label: 'Ring (Literal Symmetry)' },
+  { value: 'necklace', label: 'Necklace (Architecture)' },
+  { value: 'bracelet', label: 'Bracelet (Geometry)' },
+  { value: 'earring', label: 'Earrings (Paired Refinement)' },
+  { value: 'watch', label: 'Timepiece (Precision)' },
+  { value: 'pendant', label: 'Pendant (Focal Point)' }
+];
 
 const CreatePhotoshootView: React.FC<CreatePhotoshootViewProps> = ({ onBack, onSubmit }) => {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [placement, setPlacement] = useState('neck');
-  const [style, setStyle] = useState('soft');
-  const [prompt, setPrompt] = useState(PLACEMENT_PROMPTS['neck']);
+  const [images, setImages] = useState<string[]>([]);
+  const [placement, setPlacement] = useState('ring');
+  const [style, setStyle] = useState('white');
+  const [prompt, setPrompt] = useState('Produce a hyper-realistic, high-fidelity e-commerce product photo. Ensure 1:1 physical matching with the reference jewelry. White background, neutral lighting, no props.');
+  const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Update prompt when placement changes, but only if the user hasn't manually edited it significantly 
-  // or just as a helpful preset whenever they switch categories.
-  const handlePlacementChange = (newPlacement: string) => {
-    setPlacement(newPlacement);
-    setPrompt(PLACEMENT_PROMPTS[newPlacement] || PLACEMENT_PROMPTS['studio']);
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []) as File[];
+    setError(null);
+    if (images.length + files.length > MAX_IMAGES) {
+      setError(`Maximum ${MAX_IMAGES} reference assets permitted.`);
+      return;
     }
+    files.forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        setError("Source asset exceeds 10MB limit.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => setImages(prev => [...prev, reader.result as string]);
+      reader.readAsDataURL(file);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleGenerate = () => {
-    if (!imagePreview) {
-      alert("Please upload a jewelry image first.");
+    if (images.length < MIN_IMAGES) {
+      setError(`Minimum ${MIN_IMAGES} source angles required for accurate synthesis.`);
       return;
     }
-    onSubmit({
-      jewelryImage: imagePreview,
-      placement,
-      style,
-      prompt
-    });
+    onSubmit({ jewelryImages: images, placement, style, prompt });
   };
 
   return (
-    <div className="flex h-screen flex-col bg-background-light dark:bg-background-dark font-display text-white transition-colors duration-300">
-      <header className="flex items-center justify-between border-b border-solid border-slate-200 dark:border-[#292348] px-6 lg:px-10 py-4 shrink-0">
-        <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
-          <div className="size-8 text-primary">
-            <svg fill="currentColor" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-              <path d="M44 11.2727C44 14.0109 39.8386 16.3957 33.69 17.6364C39.8386 18.877 44 21.2618 44 24C44 26.7382 39.8386 29.123 33.69 30.3636C39.8386 31.6043 44 33.9891 44 36.7273C44 40.7439 35.0457 44 24 44C12.9543 44 4 40.7439 4 36.7273C4 33.9891 8.16144 31.6043 14.31 30.3636C8.16144 29.123 4 26.7382 4 24C4 21.2618 8.16144 18.877 14.31 17.6364C8.16144 16.3957 4 14.0109 4 11.2727C4 7.25611 12.9543 4 24 4C35.0457 4 44 7.25611 44 11.2727Z"></path>
-            </svg>
+    <div className="flex h-screen flex-col bg-obsidian text-slate-100">
+      <header className="flex items-center justify-between border-b border-white/5 px-12 py-6 shrink-0 bg-surface/40 backdrop-blur-2xl">
+        <button onClick={onBack} className="flex items-center gap-5 hover:opacity-70 transition-all group">
+          <div className="text-primary ai-glow group-hover:scale-110 transition-transform">
+            <span className="material-symbols-outlined text-3xl">diamond</span>
           </div>
-          <h2 className="text-slate-900 dark:text-white text-xl font-black leading-tight tracking-tight">JewelShot AI</h2>
-        </div>
-        <div className="flex gap-3">
-          <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-200 dark:bg-[#292348] text-slate-700 dark:text-white hover:bg-primary hover:text-white transition-colors">
-            <span className="material-symbols-outlined">settings</span>
-          </button>
-          <button className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-200 dark:bg-[#292348] text-slate-700 dark:text-white hover:bg-primary hover:text-white transition-colors">
-            <span className="material-symbols-outlined">account_circle</span>
-          </button>
+          <span className="text-[11px] font-bold uppercase tracking-[0.5em] text-white/50">Project Configurator</span>
+        </button>
+        <div className="flex items-center gap-8">
+          <div className="h-4 w-px bg-white/10"></div>
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/10 italic">Core Algorithm v4.2 // Ray-Trace Mode</span>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-[1280px] mx-auto px-6 py-8">
-          <div className="flex flex-col gap-2 mb-8">
-            <h1 className="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Create Photoshoot</h1>
-            <p className="text-slate-600 dark:text-[#9b92c9] text-base font-normal leading-normal">Configure your jewelry AI photoshoot parameters</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            {/* Left Column: Input Card */}
-            <div className="bg-white dark:bg-[#1e1933] rounded-xl border border-slate-200 dark:border-[#3b3267] p-6 flex flex-col gap-6 shadow-sm">
-              <h3 className="text-slate-900 dark:text-white text-lg font-bold">Input Configuration</h3>
+      <main className="flex-1 overflow-y-auto p-16">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-20">
+          
+          <div className="lg:col-span-5 space-y-16">
+            <section className="space-y-8">
+              <div className="flex justify-between items-end">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.5em] text-white/30">Asset Lightbox</h3>
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{images.length}/{MAX_IMAGES} Registered</span>
+              </div>
               
-              <div className="flex flex-col">
-                <div 
-                  className={`flex flex-col items-center gap-6 rounded-lg border-2 border-dashed border-slate-300 dark:border-[#3b3267] px-6 py-10 bg-slate-50 dark:bg-[#141122] transition-colors ${imagePreview ? 'border-primary/50' : ''}`}
-                >
-                  {imagePreview ? (
-                    <div className="relative group w-full flex justify-center">
-                      <img src={imagePreview} className="max-h-48 rounded-md object-contain" alt="Jewelry preview" />
-                      <button 
-                        onClick={() => setImagePreview(null)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <span className="material-symbols-outlined text-sm">close</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex max-w-[480px] flex-col items-center gap-2">
-                      <span className="material-symbols-outlined text-4xl text-slate-400 dark:text-[#9b92c9]">cloud_upload</span>
-                      <p className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] text-center">Upload Jewelry Image</p>
-                      <p className="text-slate-500 dark:text-[#9b92c9] text-sm font-normal leading-normal text-center">Select your jewelry photo or sketch to enhance</p>
-                    </div>
-                  )}
-                  
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleFileChange}
-                  />
+              <div className="grid grid-cols-3 gap-5">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border border-white/5 group bg-surface shadow-2xl">
+                    <img src={img} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" alt="Asset" />
+                    <button 
+                      onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-3 right-3 size-8 bg-obsidian/80 backdrop-blur-xl text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all border border-white/10 hover:border-red-500/50"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                    {idx === 0 && (
+                      <div className="absolute bottom-3 left-3 px-3 py-1 bg-primary/20 backdrop-blur-xl border border-primary/30 text-[9px] font-bold text-primary uppercase tracking-[0.2em] rounded-full">
+                        Reference A
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {images.length < MAX_IMAGES && (
                   <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:opacity-90 transition-opacity"
+                    className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] bg-surface/20 hover:bg-surface/40 hover:border-primary/30 transition-all text-white/10 hover:text-primary group"
                   >
-                    <span className="truncate">{imagePreview ? 'Replace File' : 'Select File'}</span>
+                    <span className="material-symbols-outlined text-4xl group-hover:scale-110 transition-transform">add</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] mt-4">Append Angle</span>
                   </button>
+                )}
+              </div>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileChange} />
+              {error && <p className="text-[10px] font-bold text-primary bg-primary/5 p-5 rounded-2xl border border-primary/10 tracking-widest text-center animate-pulse">{error}</p>}
+            </section>
+
+            <section className="space-y-10 bg-surface/30 border border-white/5 p-10 rounded-[3rem] luxury-shadow metallic-border">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.5em] text-white/30">Rendering Parameters</h3>
+              
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/20 ml-2">Anatomical Target</label>
+                <div className="relative">
+                  <select 
+                    value={placement}
+                    onChange={(e) => setPlacement(e.target.value)}
+                    className="w-full rounded-2xl bg-obsidian border border-white/5 text-sm h-16 px-6 focus:ring-1 focus:ring-primary focus:border-primary/40 appearance-none text-white font-medium cursor-pointer"
+                  >
+                    {PLACEMENT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">expand_more</span>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col">
-                  <label className="flex flex-col w-full">
-                    <p className="text-slate-700 dark:text-white text-base font-medium leading-normal pb-2">Jewelry Placement</p>
-                    <select 
-                      value={placement}
-                      onChange={(e) => handlePlacementChange(e.target.value)}
-                      className="flex w-full min-w-0 flex-1 rounded-lg text-slate-900 dark:text-white border border-slate-200 dark:border-[#3b3267] bg-white dark:bg-[#1e1933] h-14 p-4 text-base font-normal focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-                    >
-                      <option value="hand">Hand (Rings/Bracelets)</option>
-                      <option value="neck">Neck (Necklaces)</option>
-                      <option value="ear">Ear (Earrings)</option>
-                      <option value="studio">Studio Display (Pedestal)</option>
-                    </select>
-                  </label>
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/20 ml-2">Synthesis Context</label>
+                <div className="relative">
+                  <select 
+                    value={style}
+                    onChange={(e) => setStyle(e.target.value)}
+                    className="w-full rounded-2xl bg-obsidian border border-white/5 text-sm h-16 px-6 focus:ring-1 focus:ring-primary focus:border-primary/40 appearance-none text-white font-medium cursor-pointer"
+                  >
+                    <option value="white">E-Commerce (Neutral White)</option>
+                    <option value="transparent">High-Res Alpha (Transparent)</option>
+                    <option value="grey">Studio Grey (Architectural)</option>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">expand_more</span>
                 </div>
+              </div>
 
-                <div className="flex flex-col">
-                  <label className="flex flex-col w-full">
-                    <p className="text-slate-700 dark:text-white text-base font-medium leading-normal pb-2">Background Style</p>
-                    <select 
-                      value={style}
-                      onChange={(e) => setStyle(e.target.value)}
-                      className="flex w-full min-w-0 flex-1 rounded-lg text-slate-900 dark:text-white border border-slate-200 dark:border-[#3b3267] bg-white dark:bg-[#1e1933] h-14 p-4 text-base font-normal focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-                    >
-                      <option value="white">Clean White Studio</option>
-                      <option value="soft">Soft Minimalist</option>
-                      <option value="lifestyle">Lifestyle Context</option>
-                      <option value="marble">Elegant Marble</option>
-                      <option value="velvet">Luxury Velvet</option>
-                    </select>
-                  </label>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center ml-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/20">Technical Directive</label>
+                  <button onClick={() => setPrompt('Produce a hyper-realistic, high-fidelity e-commerce product photo. Ensure 1:1 physical matching with the reference jewelry. White background, neutral lighting, no props.')} className="text-[9px] font-bold uppercase text-primary tracking-widest hover:underline opacity-40">Default</button>
                 </div>
-
-                <div className="flex flex-col">
-                  <label className="flex flex-col w-full">
-                    <div className="flex justify-between items-center pb-2">
-                      <p className="text-slate-700 dark:text-white text-base font-medium leading-normal">Style Prompt</p>
-                      <button 
-                        type="button" 
-                        onClick={() => setPrompt(PLACEMENT_PROMPTS[placement])}
-                        className="text-primary text-xs font-bold hover:underline"
-                      >
-                        Reset to Preset
-                      </button>
-                    </div>
-                    <textarea 
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="w-full min-h-32 bg-white dark:bg-[#1e1933] border border-slate-200 dark:border-[#3b3267] rounded-xl p-4 text-slate-900 dark:text-white resize-none text-base font-normal focus:ring-2 focus:ring-primary outline-none"
-                      placeholder="Describe the environment, lighting, and mood..."
-                    />
-                  </label>
-                </div>
+                <textarea 
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="w-full min-h-[140px] rounded-2xl bg-obsidian border border-white/5 text-xs p-6 focus:ring-1 focus:ring-primary focus:border-primary/40 resize-none leading-relaxed text-white/70 font-medium"
+                />
               </div>
 
               <button 
                 onClick={handleGenerate}
-                className="w-full flex cursor-pointer items-center justify-center rounded-lg h-14 bg-primary text-white text-lg font-black uppercase tracking-wider shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                disabled={images.length < MIN_IMAGES}
+                className="w-full h-20 rose-gold-gradient text-obsidian font-black rounded-3xl shadow-2xl shadow-primary/10 hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-20 text-xs uppercase tracking-[0.5em]"
               >
-                Generate Photos
+                Initiate Core Synthesis
               </button>
-            </div>
+            </section>
+          </div>
 
-            {/* Right Column: Preview Placeholder */}
-            <div className="bg-white dark:bg-[#1e1933] rounded-xl border border-slate-200 dark:border-[#3b3267] p-6 flex flex-col gap-6 shadow-sm h-full min-h-[500px]">
-              <div className="flex justify-between items-center">
-                <h3 className="text-slate-900 dark:text-white text-lg font-bold">AI Output Preview</h3>
-                <span className="px-3 py-1 bg-slate-100 dark:bg-background-dark text-slate-500 dark:text-[#9b92c9] text-xs font-bold rounded-full uppercase tracking-tighter">Ready</span>
-              </div>
+          <div className="lg:col-span-7 h-full flex flex-col">
+            <div className="bg-surface/20 border border-white/5 rounded-[4rem] flex-1 flex flex-col relative overflow-hidden luxury-shadow spotlight">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-40 pointer-events-none"></div>
               
-              <div className="flex-1 flex flex-col items-center justify-center border border-slate-100 dark:border-[#3b3267] bg-slate-50/50 dark:bg-[#141122] rounded-lg relative overflow-hidden">
-                <div className="flex flex-col items-center gap-3 text-slate-300 dark:text-[#3b3267]">
-                  <span className="material-symbols-outlined text-8xl">image</span>
-                  <p className="text-slate-400 dark:text-[#3b3267] text-sm font-medium">Result will appear here</p>
+              <div className="px-12 py-8 border-b border-white/5 flex justify-between items-center bg-surface/40 backdrop-blur-xl relative z-10">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.5em] text-white/30">Holographic Workstation</h3>
+                <div className="flex gap-3 items-center">
+                   <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)] animate-pulse"></div>
+                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Cluster Active</span>
                 </div>
               </div>
-
-              <button className="w-full flex items-center justify-center rounded-lg h-12 bg-slate-200 dark:bg-[#292348] text-slate-400 dark:text-[#5b5289] text-sm font-bold uppercase tracking-wider cursor-not-allowed transition-all" disabled>
-                <span className="material-symbols-outlined mr-2">download</span>
-                Download Result
-              </button>
+              
+              <div className="flex-1 flex flex-col items-center justify-center p-24 text-center relative z-10">
+                <div className="size-40 rounded-full bg-obsidian border border-white/10 flex items-center justify-center mb-12 shadow-inner spotlight ai-glow">
+                  <span className="material-symbols-outlined text-7xl text-primary/20">biotech</span>
+                </div>
+                <h4 className="text-3xl font-light tracking-[0.3em] uppercase mb-6 text-white">Spatial Mapping</h4>
+                <p className="text-[12px] max-w-lg font-medium leading-relaxed text-white/20 uppercase tracking-[0.2em]">
+                  The algorithm will parse the selected assets to construct a virtual geometry model. Absolute fidelity rules apply: zero design alterations, literal material reproduction.
+                </p>
+                <div className="mt-16 flex gap-6">
+                  <div className="px-6 py-2 border border-white/5 rounded-full text-[9px] font-bold uppercase tracking-[0.4em] text-white/10">8K Render Output</div>
+                  <div className="px-6 py-2 border border-white/5 rounded-full text-[9px] font-bold uppercase tracking-[0.4em] text-white/10">Physical Materiality</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </main>
-      
-      <footer className="fixed bottom-4 right-6 pointer-events-none opacity-40">
-        <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[4px]">JewelShot Alpha MVP v1.0.1</p>
-      </footer>
     </div>
   );
 };
