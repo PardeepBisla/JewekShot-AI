@@ -7,7 +7,14 @@ export async function generateJewelryPhoto(
   style: string,
   customPrompt: string
 ): Promise<string[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use a safer way to access API_KEY
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+  
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please ensure the project is properly configured.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const imageParts = base64Images.map(img => ({
     inlineData: {
@@ -16,10 +23,6 @@ export async function generateJewelryPhoto(
     },
   }));
 
-  /**
-   * ABSOLUTE FIDELITY PROTOCOL
-   * The reference image is the single source of truth.
-   */
   const systemInstruction = `
     You are an AI product-visualization engine for the jewellery industry.
     Your PRIMARY responsibility is to preserve the exact physical identity of the jewellery provided in the reference image.
@@ -33,7 +36,6 @@ export async function generateJewelryPhoto(
     6. GOAL: Create a clean professional jewellery product photo that is e-commerce catalog-ready. Ultra-sharp, photorealistic, and distortion-free.
   `;
 
-  // We generate three distinct professional angles/variants based on the literal reproduction rule
   const variants = [
     {
       id: 'catalog-main',
@@ -89,12 +91,14 @@ export async function generateJewelryPhoto(
     const finalImages = results.filter((img): img is string => img !== null);
 
     if (finalImages.length === 0) {
-      throw new Error("Reference image quality insufficient for accurate reproduction.");
+      throw new Error("No imagery candidates were returned. Please try with clearer source photos.");
     }
 
     return finalImages;
-  } catch (error) {
-    console.error("Gemini Fidelity Synthesis Error:", error);
+  } catch (error: any) {
+    if (error.message?.includes('fetch')) {
+      throw new Error("Network Error: Could not reach the AI synthesis server. Please check your internet connection.");
+    }
     throw error;
   }
 }

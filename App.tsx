@@ -16,12 +16,12 @@ const App: React.FC = () => {
   const [lastConfig, setLastConfig] = useState<PhotoshootConfig | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Mock initial projects
+  // Initial projects catalog
   const [projects, setProjects] = useState<Project[]>([
     {
       id: '1',
       name: 'Diamond Ring Set A',
-      thumbnail: 'https://picsum.photos/seed/ring1/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=400',
       lastEdited: '2 hours ago',
       renderCount: 12,
       status: 'Completed'
@@ -29,7 +29,7 @@ const App: React.FC = () => {
     {
       id: '2',
       name: 'Gold Necklace Series',
-      thumbnail: 'https://picsum.photos/seed/necklace/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=400',
       lastEdited: 'Yesterday',
       renderCount: 8,
       status: 'Completed'
@@ -37,33 +37,34 @@ const App: React.FC = () => {
     {
       id: '3',
       name: 'Minimalist Earrings',
-      thumbnail: 'https://picsum.photos/seed/earrings/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&q=80&w=400',
       lastEdited: '3 days ago',
       renderCount: 24,
       status: 'Completed'
     }
   ]);
 
-  // Handle Supabase Auth Session
+  // Handle Supabase Auth Session with network failure resilience
   useEffect(() => {
     let mounted = true;
 
-    // Check configuration status
     if (!isSupabaseConfigured()) {
-      console.warn("Supabase is not configured. Redirecting to Auth View for manual setup or keys.");
       setIsInitializing(false);
       return;
     }
 
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
         if (mounted && session?.user) {
           setUser({ email: session.user.email || '' });
           setCurrentView(prev => prev === AppView.AUTH ? AppView.DASHBOARD : prev);
         }
       } catch (err) {
-        console.error("Initial session check failed", err);
+        // Log the error but don't brick the app; allow AuthView to handle login UI
+        console.warn("Auth check bypassed or failed (likely network issue). Entering guest-ready state.", err);
       } finally {
         if (mounted) setIsInitializing(false);
       }
@@ -101,6 +102,7 @@ const App: React.FC = () => {
       await supabase.auth.signOut();
     } catch (err) {
       console.error("Sign out error", err);
+      // Fallback: Clear local state anyway
       setUser(null);
       setCurrentView(AppView.AUTH);
     }
@@ -134,20 +136,26 @@ const App: React.FC = () => {
       
       setCurrentView(AppView.RESULTS);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
       console.error("Photoshoot generation failed", error);
-      alert("Error generating image: " + (error instanceof Error ? error.message : "Unknown error"));
+      
+      // Better error handling for the user
+      alert(`Synthesis Error: ${msg}\n\nPlease check your internet connection or API key status.`);
       setCurrentView(AppView.CREATE);
     }
   }, [projects]);
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center gap-6">
-        <div className="text-primary animate-bounce">
-           <span className="material-symbols-outlined text-6xl">diamond</span>
+      <div className="min-h-screen bg-obsidian flex flex-col items-center justify-center gap-10">
+        <div className="text-primary spotlight-glow animate-pulse">
+           <span className="material-symbols-outlined text-7xl font-light">diamond</span>
         </div>
-        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-primary animate-[loading_1.5s_ease-in-out_infinite] w-1/3"></div>
+        <div className="space-y-3 text-center">
+          <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.5em]">Establishing Secure Connection</p>
+          <div className="w-64 h-[1px] bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full rose-gold-gradient animate-[loading_2s_infinite] w-1/3"></div>
+          </div>
         </div>
         <style>{`
           @keyframes loading {
@@ -195,7 +203,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col selection:bg-primary/20">
       {renderCurrentView()}
     </div>
   );
