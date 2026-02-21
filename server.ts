@@ -8,14 +8,6 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  
-  /**
-   * Cloud Run requirement:
-   * 1. Listen on process.env.PORT
-   * 2. Default to 8080 if PORT is not defined (using 3000 here for preview compatibility)
-   * 3. Bind to host 0.0.0.0
-   */
-  const PORT = process.env.PORT || 3000;
 
   // API routes
   app.get("/api/health", (req, res) => {
@@ -36,6 +28,8 @@ async function startServer() {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
+
+  const PORT = process.env.PORT || 8080;
 
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
